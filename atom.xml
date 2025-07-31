@@ -3,11 +3,11 @@
   <title>LTQ的BLOG</title>
   
   <subtitle>游戏客户端开发</subtitle>
-  <link href="http://example.com/atom.xml" rel="self"/>
+  <link href="https://liutianqi0123.github.io/atom.xml" rel="self"/>
   
-  <link href="http://example.com/"/>
+  <link href="https://liutianqi0123.github.io/"/>
   <updated>2025-07-17T12:32:48.787Z</updated>
-  <id>http://example.com/</id>
+  <id>https://liutianqi0123.github.io/</id>
   
   <author>
     <name>LiuChuanFeng</name>
@@ -18,8 +18,8 @@
   
   <entry>
     <title>Hello World</title>
-    <link href="http://example.com/2025/07/17/hello-world/"/>
-    <id>http://example.com/2025/07/17/hello-world/</id>
+    <link href="https://liutianqi0123.github.io/2025/07/17/hello-world/"/>
+    <id>https://liutianqi0123.github.io/2025/07/17/hello-world/</id>
     <published>2025-07-17T12:35:23.288Z</published>
     <updated>2025-07-17T12:32:48.787Z</updated>
     
