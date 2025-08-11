@@ -22,15 +22,15 @@
     var CONFIG = {"hostname":"liutianqi0123.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="UE UMG和Slate 源码分析和混合使用一，Slate和UMG的区别 slate：ue的底层UI框架。使用C++编写的，用于创建高度定制化的和性能优化的用户界面。所有的UMG控件最终都是基于Slate实现的。 umg：是基于Slate的高级UI编辑工具。它提供了一个直观的拖放界面，让开发者可以在Editor中创建和设计UI，而不需要编写大量的C++代码。 &lt;! –more– &gt; 1">
+  <meta name="description" content="UE UMG和Slate 源码分析和混合使用一，Slate和UMG的区别 slate：ue的底层UI框架。使用C++编写的，用于创建高度定制化的和性能优化的用户界面。所有的UMG控件最终都是基于Slate实现的。 umg：是基于Slate的高级UI编辑工具。它提供了一个直观的拖放界面，让开发者可以在Editor中创建和设计UI，而不需要编写大量的C++代码。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="UMG和Slate 源码分析和混合使用">
 <meta property="og:url" content="https://liutianqi0123.github.io/2025/08/12/UE%20UMG%E5%92%8CSlate%20%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E5%92%8C%E6%B7%B7%E5%90%88%E4%BD%BF%E7%94%A8/index.html">
 <meta property="og:site_name" content="LTQ的BLOG">
-<meta property="og:description" content="UE UMG和Slate 源码分析和混合使用一，Slate和UMG的区别 slate：ue的底层UI框架。使用C++编写的，用于创建高度定制化的和性能优化的用户界面。所有的UMG控件最终都是基于Slate实现的。 umg：是基于Slate的高级UI编辑工具。它提供了一个直观的拖放界面，让开发者可以在Editor中创建和设计UI，而不需要编写大量的C++代码。 &lt;! –more– &gt; 1">
+<meta property="og:description" content="UE UMG和Slate 源码分析和混合使用一，Slate和UMG的区别 slate：ue的底层UI框架。使用C++编写的，用于创建高度定制化的和性能优化的用户界面。所有的UMG控件最终都是基于Slate实现的。 umg：是基于Slate的高级UI编辑工具。它提供了一个直观的拖放界面，让开发者可以在Editor中创建和设计UI，而不需要编写大量的C++代码。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-08-12T06:08:14.000Z">
-<meta property="article:modified_time" content="2025-08-11T17:28:11.017Z">
+<meta property="article:modified_time" content="2025-08-11T17:36:14.022Z">
 <meta property="article:author" content="LiuChuanFeng">
 <meta property="article:tag" content="游戏开发, 编辑器开发, C++, 虚幻, Unreal, AIGC, UGC, 渲染管线">
 <meta name="twitter:card" content="summary">
@@ -219,7 +219,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2025-08-12 14:08:14 / 修改时间：01:28:11" itemprop="dateCreated datePublished" datetime="2025-08-12T14:08:14+08:00">2025-08-12</time>
+              <time title="创建时间：2025-08-12 14:08:14 / 修改时间：01:36:14" itemprop="dateCreated datePublished" datetime="2025-08-12T14:08:14+08:00">2025-08-12</time>
             </span>
 
           
@@ -257,7 +257,8 @@
         <h1 id="UE-UMG和Slate-源码分析和混合使用"><a href="#UE-UMG和Slate-源码分析和混合使用" class="headerlink" title="UE UMG和Slate 源码分析和混合使用"></a>UE UMG和Slate 源码分析和混合使用</h1><p>一，Slate和UMG的区别</p>
 <p>slate：ue的底层UI框架。使用C++编写的，用于创建高度定制化的和性能优化的用户界面。所有的UMG控件最终都是基于Slate实现的。</p>
 <p>umg：是基于Slate的高级UI编辑工具。它提供了一个直观的拖放界面，让开发者可以在Editor中创建和设计UI，而不需要编写大量的C++代码。</p>
-<p>&lt;! –more– &gt;</p>
+<span id="more"></span>
+
 <h4 id="1-UMG和Slate的关系"><a href="#1-UMG和Slate的关系" class="headerlink" title="1.UMG和Slate的关系"></a>1.UMG和Slate的关系</h4><table>
 <thead>
 <tr>
