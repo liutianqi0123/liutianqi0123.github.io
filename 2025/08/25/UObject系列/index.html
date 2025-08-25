@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="/lib/pace/pace-theme-minimal.min.css">
+  <script src="/lib/pace/pace.min.js"></script>
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liutianqi0123.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="UObject系列UObject作为UE整个体系的基类，内包含了很多通用功能，包括：GC,Reflection,MetaData,Serialization,Editable,Class Default Object 1.C++，C11，模板，宏，对象内存模型 2.反射系统，编译原理，元数据，程序结构， 3，多线程 4，C++内存分配管理，内存分配管理的意义和技术。 通过UHT工具已经分析得到了足">
+<meta property="og:type" content="article">
+<meta property="og:title" content="UObject系列-源码分析">
+<meta property="og:url" content="https://liutianqi0123.github.io/2025/08/25/UObject%E7%B3%BB%E5%88%97/index.html">
+<meta property="og:site_name" content="LTQ的BLOG">
+<meta property="og:description" content="UObject系列UObject作为UE整个体系的基类，内包含了很多通用功能，包括：GC,Reflection,MetaData,Serialization,Editable,Class Default Object 1.C++，C11，模板，宏，对象内存模型 2.反射系统，编译原理，元数据，程序结构， 3，多线程 4，C++内存分配管理，内存分配管理的意义和技术。 通过UHT工具已经分析得到了足">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-08-25T09:07:17.000Z">
+<meta property="article:modified_time" content="2025-08-25T09:02:16.795Z">
+<meta property="article:author" content="LiuChuanFeng">
+<meta property="article:tag" content="游戏开发, 编辑器开发, C++, 虚幻, Unreal, AIGC, UGC, 渲染管线">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liutianqi0123.github.io/2025/08/25/UObject%E7%B3%BB%E5%88%97/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>UObject系列-源码分析 | LTQ的BLOG</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="LTQ的BLOG" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">LTQ的BLOG</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">游戏客户端开发</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+  <a href="https://github.com/yourname" class="github-corner" title="Follow me on GitHub" aria-label="Follow me on GitHub" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liutianqi0123.github.io/2025/08/25/UObject%E7%B3%BB%E5%88%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/blogImage.jpg">
+      <meta itemprop="name" content="LiuChuanFeng">
+      <meta itemprop="description" content="Unreal，C++，Lua，编辑器，渲染，Gameplay，3C。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="LTQ的BLOG">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          UObject系列-源码分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2025-08-25 17:07:17 / 修改时间：17:02:16" itemprop="dateCreated datePublished" datetime="2025-08-25T17:07:17+08:00">2025-08-25</time>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>34k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>1:01</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="UObject系列"><a href="#UObject系列" class="headerlink" title="UObject系列"></a>UObject系列</h1><p>UObject作为UE整个体系的基类，内包含了很多通用功能，包括：GC,Reflection,MetaData,Serialization,Editable,Class Default Object</p>
+<p>1.C++，C11，模板，宏，对象内存模型</p>
+<p>2.反射系统，编译原理，元数据，程序结构，</p>
+<p>3，多线程</p>
+<p>4，C++内存分配管理，内存分配管理的意义和技术。</p>
+<p>通过UHT工具已经分析得到了足够的类型元数据信息，下一步就是利用这个信息在程序内存中构建起类型系统结构，这个过程为注册。UE在内存中模拟构建的过程中，也需要经过-生成-收集-注册-链接几个阶段。</p>
+<span id="more"></span>
+
+<p>首先第一阶段-生成</p>
+<p>UHT分析我们的代码，生成类型系统的相关代码。</p>
+<p>使用引擎版本为UE5.4,参考文章为UE4还是有不小的改动。</p>
+<p>我创建了一个Hello的项目，然后又创建了一个MyObject的类。编译然后进行编译代码分析</p>
+<p>我的MyObject文件包含的数据：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">// Fill out your copyright notice in the Description page of Project Settings.</span><br><span class="line"></span><br><span class="line">#pragma once</span><br><span class="line"></span><br><span class="line">#include &quot;CoreMinimal.h&quot;</span><br><span class="line">#include &quot;UObject/NoExportTypes.h&quot;</span><br><span class="line">#include &quot;MyObject.generated.h&quot;</span><br><span class="line"></span><br><span class="line">/**</span><br><span class="line"> * </span><br><span class="line"> */</span><br><span class="line"></span><br><span class="line">UENUM()</span><br><span class="line">enum class EMyEnum : uint8</span><br><span class="line">&#123;</span><br><span class="line">    MY_Dance,</span><br><span class="line">    MY_Rain,</span><br><span class="line">    MY_Song</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">USTRUCT(BlueprintType)</span><br><span class="line">struct HELLO_API FMyStruct</span><br><span class="line">&#123;</span><br><span class="line">    GENERATED_USTRUCT_BODY()</span><br><span class="line"></span><br><span class="line">    UPROPERTY(BlueprintReadWrite)</span><br><span class="line">    float Score;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">UCLASS()</span><br><span class="line">class HELLO_API UMyObject : public UObject</span><br><span class="line">&#123;</span><br><span class="line">	GENERATED_BODY()</span><br><span class="line">public:</span><br><span class="line">	UPROPERTY(BlueprintReadWrite)</span><br><span class="line">	float Score;</span><br><span class="line">public:</span><br><span class="line">	UFUNCTION(BlueprintCallable, Category = &quot;Hello&quot;)</span><br><span class="line">	void CallableFunc();    //C++实现，蓝图调用</span><br><span class="line"></span><br><span class="line">	UFUNCTION(BlueprintNativeEvent, Category = &quot;Hello&quot;)</span><br><span class="line">	void NativeFunc();  //C++实现默认版本，蓝图可重载实现</span><br><span class="line"></span><br><span class="line">	UFUNCTION(BlueprintImplementableEvent, Category = &quot;Hello&quot;)</span><br><span class="line">	void ImplementableFunc();   //C++不实现，蓝图实现</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">UINTERFACE()</span><br><span class="line">class UMyInterface : public UInterface</span><br><span class="line">&#123;</span><br><span class="line">    GENERATED_BODY()</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">class HELLO_API IMyInterface</span><br><span class="line">&#123;</span><br><span class="line">    GENERATED_IINTERFACE_BODY()</span><br><span class="line">public:</span><br><span class="line">    UFUNCTION(BlueprintImplementableEvent)</span><br><span class="line">    void BPFunc() const;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>UHT会自动扫描这些文件读这些宏去生成一些代码文件，MyObject.generated.h</p>
+<p>MyObject.gen.cpp以及Hello.init.gen.cpp这样一个项目的文件会将UClass和UEnum以及UScript等数据的信息存储到UPackage中。</p>
+<p>下面我们分析MyObject.generated.h这个文件，这个是反射生成的头文件，可以看到一些信息。</p>
+<p>首先我们展开这个GENERATED_BODY()宏</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#define GENERATED_BODY(...) BODY_MACRO_COMBINE(CURRENT_FILE_ID,_,__LINE__,_GENERATED_BODY);</span><br><span class="line">#define BODY_MACRO_COMBINE(A,B,C,D) BODY_MACRO_COMBINE_INNER(A,B,C,D)</span><br><span class="line">#define BODY_MACRO_COMBINE_INNER(A,B,C,D) A##B##C##D</span><br></pre></td></tr></table></figure>
+
+<p>可以看到这个宏的意义就是拼接字符串，分别为</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">名字_行号_GENERATED_BODY</span><br></pre></td></tr></table></figure>
+
+<p>名字就是项目的名字也是一个#define起的别匿名，行号表示本文件支持多个Generatedbody，后面一个标识，所以查看MyObject.generated.h这个文件中所有的_GENERATED_BODY就能找到所有的宏定义。我们一一分析</p>
+<p>首先分析UClass</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">#define FID_Hello_Source_Hello_MyObject_h_34_GENERATED_BODY \</span><br><span class="line">PRAGMA_DISABLE_DEPRECATION_WARNINGS \(这个禁用编辑器警告，可以忽略)</span><br><span class="line">public: \</span><br><span class="line">	FID_Hello_Source_Hello_MyObject_h_34_RPC_WRAPPERS_NO_PURE_DECLS \</span><br><span class="line">	FID_Hello_Source_Hello_MyObject_h_34_CALLBACK_WRAPPERS \</span><br><span class="line">	FID_Hello_Source_Hello_MyObject_h_34_INCLASS_NO_PURE_DECLS \</span><br><span class="line">	FID_Hello_Source_Hello_MyObject_h_34_ENHANCED_CONSTRUCTORS \</span><br><span class="line">private: \</span><br><span class="line">PRAGMA_ENABLE_DEPRECATION_WARNINGS(这个禁用编辑器警告，可以忽略)</span><br></pre></td></tr></table></figure>
+
+<p>然后分别分析其他四个宏：</p>
+<p>首先是FID_Hello_Source_Hello_MyObject_h_34_RPC_WRAPPERS_NO_PURE_DECLS</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#define FID_Hello_Source_Hello_MyObject_h_34_RPC_WRAPPERS_NO_PURE_DECLS \</span><br><span class="line">	virtual void NativeFunc_Implementation(); \</span><br><span class="line">	DECLARE_FUNCTION(execNativeFunc); \</span><br><span class="line">	DECLARE_FUNCTION(execCallableFunc);</span><br></pre></td></tr></table></figure>
+
+<p>首先NativeFunc_Implementation这个函数是我定义的函数的一个声明，这个就是为什么在.h和cpp中函数名称不一样但是可以编译通过的原因，至于下面两个宏，可以在cpp中查看定义：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">UFunction* Z_Construct_UFunction_UMyObject_NativeFunc()</span><br><span class="line">&#123;</span><br><span class="line">	static UFunction* ReturnFunction = nullptr;</span><br><span class="line">	if (!ReturnFunction)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUFunction(&amp;ReturnFunction, Z_Construct_UFunction_UMyObject_NativeFunc_Statics::FuncParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return ReturnFunction;</span><br><span class="line">&#125;</span><br><span class="line">DEFINE_FUNCTION(UMyObject::execNativeFunc)</span><br><span class="line">&#123;</span><br><span class="line">	P_FINISH;</span><br><span class="line">	P_NATIVE_BEGIN;</span><br><span class="line">	P_THIS-&gt;NativeFunc_Implementation();</span><br><span class="line">	P_NATIVE_END;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// Begin Class UMyObject Function NativeFunc</span><br><span class="line">static FName NAME_UMyObject_NativeFunc = FName(TEXT(&quot;NativeFunc&quot;));</span><br><span class="line">void UMyObject::NativeFunc()</span><br><span class="line">&#123;</span><br><span class="line">	ProcessEvent(FindFunctionChecked(NAME_UMyObject_NativeFunc),NULL);</span><br><span class="line">&#125;</span><br><span class="line">UFunction* Z_Construct_UFunction_UMyObject_NativeFunc()</span><br><span class="line">&#123;</span><br><span class="line">	static UFunction* ReturnFunction = nullptr;</span><br><span class="line">	if (!ReturnFunction)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUFunction(&amp;ReturnFunction, Z_Construct_UFunction_UMyObject_NativeFunc_Statics::FuncParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return ReturnFunction;</span><br><span class="line">&#125;</span><br><span class="line">DEFINE_FUNCTION(UMyObject::execNativeFunc)</span><br><span class="line">&#123;</span><br><span class="line">	P_FINISH;</span><br><span class="line">	P_NATIVE_BEGIN;</span><br><span class="line">	P_THIS-&gt;NativeFunc_Implementation();</span><br><span class="line">	P_NATIVE_END;</span><br><span class="line">&#125;</span><br><span class="line">// End Class UMyObject Function NativeFunc</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>CallableFunc和NativeFunc这两个函数，会通过命名来注册，然后可以在蓝图中调用，而ImplementableFunc这个函数因为需要在蓝图中实现，不需要c++所以不需要实现。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">void UMyObject::StaticRegisterNativesUMyObject()</span><br><span class="line">&#123;</span><br><span class="line">    UClass* Class = UMyObject::StaticClass();</span><br><span class="line">    static const FNameNativePtrPair Funcs[] = &#123;</span><br><span class="line">       &#123; &quot;CallableFunc&quot;, &amp;UMyObject::execCallableFunc &#125;,</span><br><span class="line">       &#123; &quot;NativeFunc&quot;, &amp;UMyObject::execNativeFunc &#125;,</span><br><span class="line">    &#125;;</span><br><span class="line">    FNativeFunctionRegistrar::RegisterFunctions(Class, Funcs, UE_ARRAY_COUNT(Funcs));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在gen.cpp中，ProcessEvent函数的用途就是C++可以调用蓝图函数，因为ImplementableFunc和NativeFunc都可能在蓝图中有实现，所以会生成下方代码，而CallableFunc不会在蓝图中实现，从而没有生成类似的代码。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">static FName NAME_UMyClass_ImplementableFunc = FName(TEXT(&quot;ImplementableFunc&quot;));</span><br><span class="line">void UMyClass::ImplementableFunc()</span><br><span class="line">&#123;</span><br><span class="line">	ProcessEvent(FindFunctionChecked(NAME_UMyClass_ImplementableFunc),NULL); // 调用蓝图中实现</span><br><span class="line">&#125;</span><br><span class="line">static FName NAME_UMyClass_NativeFunc = FName(TEXT(&quot;NativeFunc&quot;));</span><br><span class="line">void UMyClass::NativeFunc()</span><br><span class="line">&#123;</span><br><span class="line">	ProcessEvent(FindFunctionChecked(NAME_UMyClass_NativeFunc),NULL); //调用蓝图中实现的函数</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>#define FID_Hello_Source_Hello_MyObject_h_34_CALLBACK_WRAPPERS 这个宏没什么意义，先过，先看这个</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#define FID_Hello_Source_Hello_MyObject_h_34_INCLASS_NO_PURE_DECLS \</span><br><span class="line">private: \</span><br><span class="line">	static void StaticRegisterNativesUMyObject(); \</span><br><span class="line">	friend struct Z_Construct_UClass_UMyObject_Statics; \</span><br><span class="line">public: \</span><br><span class="line">	DECLARE_CLASS(UMyObject, UObject, COMPILED_IN_FLAGS(0), CASTCLASS_None, TEXT(&quot;/Script/Hello&quot;), NO_API) \</span><br><span class="line">	DECLARE_SERIALIZER(UMyObject)</span><br></pre></td></tr></table></figure>
+
+<p>StaticRegisterNativesUMyObject这个函数为刚才的函数注册的函数</p>
+<p>Z_Construct_UClass_UMyObject_Statics这个结构体，在CPP中可以看到都是一些static类型的变量</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">struct Z_Construct_UClass_UMyObject_Statics</span><br><span class="line">&#123;</span><br><span class="line">#if WITH_METADATA</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam Class_MetaDataParams[] = &#123;</span><br><span class="line">		&#123; &quot;IncludePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_Score_MetaData[] = &#123;</span><br><span class="line">		&#123; &quot;Category&quot;, &quot;MyObject&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">#endif // WITH_METADATA</span><br><span class="line">	static const UECodeGen_Private::FFloatPropertyParams NewProp_Score;</span><br><span class="line">	static const UECodeGen_Private::FPropertyParamsBase* const PropPointers[];</span><br><span class="line">	static UObject* (*const DependentSingletons[])();</span><br><span class="line">	static constexpr FClassFunctionLinkInfo FuncInfo[] = &#123;</span><br><span class="line">		&#123; &amp;Z_Construct_UFunction_UMyObject_CallableFunc, &quot;CallableFunc&quot; &#125;, // 4051148367</span><br><span class="line">		&#123; &amp;Z_Construct_UFunction_UMyObject_ImplementableFunc, &quot;ImplementableFunc&quot; &#125;, // 137106419</span><br><span class="line">		&#123; &amp;Z_Construct_UFunction_UMyObject_NativeFunc, &quot;NativeFunc&quot; &#125;, // 2192608518</span><br><span class="line">	&#125;;</span><br><span class="line">	static_assert(UE_ARRAY_COUNT(FuncInfo) &lt; 2048);</span><br><span class="line">	static constexpr FCppClassTypeInfoStatic StaticCppClassTypeInfo = &#123;</span><br><span class="line">		TCppClassTypeTraits&lt;UMyObject&gt;::IsAbstract,</span><br><span class="line">	&#125;;</span><br><span class="line">	static const UECodeGen_Private::FClassParams ClassParams;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>首先static UObject* (*const DependentSingletons[])();</p>
+<p>这里面有两个信息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">UObject* (*const Z_Construct_UClass_UMyObject_Statics::DependentSingletons[])() = &#123;</span><br><span class="line">	(UObject* (*)())Z_Construct_UClass_UObject,</span><br><span class="line">	(UObject* (*)())Z_Construct_UPackage__Script_Hello,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>一个函数指针数组，保存了Z_Construct_UClass_UObject和Z_Construct_UPackage__Script_Hello，就是构造依赖，Object是Class的父类，在往上就是Package存储数据，所以先构建一个依赖的结构体。</p>
+<p>其中Z_Construct_UClass_UObject：是个单例</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">extern FClassRegistrationInfo Z_Registration_Info_UClass_UObject; // 声明一个对象</span><br><span class="line">UClass* Z_Construct_UClass_UObject() // 在CoreNative.cpp中</span><br><span class="line">&#123;</span><br><span class="line">	if (!Z_Registration_Info_UClass_UObject.OuterSingleton)// OuterSingleton为空则构建 不为空直接返回，始终保持只构建一次</span><br><span class="line">	&#123;</span><br><span class="line">		Z_Registration_Info_UClass_UObject.OuterSingleton = UObject::StaticClass();</span><br><span class="line">		UObjectForceRegistration(Z_Registration_Info_UClass_UObject.OuterSingleton);</span><br><span class="line">#if WITH_EDITOR</span><br><span class="line">		static_assert(false, &quot;Need to EmitBaseReferences here&quot;);</span><br><span class="line">#endif</span><br><span class="line">		Z_Registration_Info_UClass_UObject.OuterSingleton-&gt;StaticLink();</span><br><span class="line">	&#125;</span><br><span class="line">	check(Z_Registration_Info_UClass_UObject.OuterSingleton-&gt;GetClass());</span><br><span class="line">	return Z_Registration_Info_UClass_UObject.OuterSingleton;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Z_Construct_UPackage__Script_Hellow构建Package则在Hello.Init.gen.cpp这个生成的文件中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">void EmptyLinkFunctionForGeneratedCodeHello_init() &#123;&#125;</span><br><span class="line">	static FPackageRegistrationInfo Z_Registration_Info_UPackage__Script_Hello;</span><br><span class="line">	FORCENOINLINE UPackage* Z_Construct_UPackage__Script_Hello()</span><br><span class="line">	&#123;</span><br><span class="line">		if (!Z_Registration_Info_UPackage__Script_Hello.OuterSingleton)</span><br><span class="line">		&#123;</span><br><span class="line">			static const UECodeGen_Private::FPackageParams PackageParams = &#123;</span><br><span class="line">				&quot;/Script/Hello&quot;,</span><br><span class="line">				nullptr,</span><br><span class="line">				0,</span><br><span class="line">				PKG_CompiledIn | 0x00000000,</span><br><span class="line">				0x235E2C13,</span><br><span class="line">				0x0AFDEF14,</span><br><span class="line">				METADATA_PARAMS(0, nullptr)</span><br><span class="line">			&#125;;</span><br><span class="line">			UECodeGen_Private::ConstructUPackage(Z_Registration_Info_UPackage__Script_Hello.OuterSingleton, PackageParams);</span><br><span class="line">		&#125;</span><br><span class="line">		return Z_Registration_Info_UPackage__Script_Hello.OuterSingleton;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看FuncInfo:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">static constexpr FClassFunctionLinkInfo FuncInfo[] = &#123;</span><br><span class="line">	&#123; &amp;Z_Construct_UFunction_UMyObject_CallableFunc, &quot;CallableFunc&quot; &#125;, // 4051148367</span><br><span class="line">	&#123; &amp;Z_Construct_UFunction_UMyObject_ImplementableFunc, &quot;ImplementableFunc&quot; &#125;, // 137106419</span><br><span class="line">	&#123; &amp;Z_Construct_UFunction_UMyObject_NativeFunc, &quot;NativeFunc&quot; &#125;, // 2192608518</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这三个info信息可以看出都是定义一个静态变量并初始化</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">struct Z_Construct_UFunction_UMyObject_CallableFunc_Statics</span><br><span class="line">&#123;</span><br><span class="line">#if WITH_METADATA</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam Function_MetaDataParams[] = &#123;</span><br><span class="line">		&#123; &quot;Category&quot;, &quot;Hello&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">#endif // WITH_METADATA</span><br><span class="line">	static const UECodeGen_Private::FFunctionParams FuncParams;</span><br><span class="line">&#125;;</span><br><span class="line">const UECodeGen_Private::FFunctionParams Z_Construct_UFunction_UMyObject_CallableFunc_Statics::FuncParams = &#123; (UObject*(*)())Z_Construct_UClass_UMyObject, nullptr, &quot;CallableFunc&quot;, nullptr, nullptr, nullptr, 0, 0, RF_Public|RF_Transient|RF_MarkAsNative, (EFunctionFlags)0x04020401, 0, 0, METADATA_PARAMS(UE_ARRAY_COUNT(Z_Construct_UFunction_UMyObject_CallableFunc_Statics::Function_MetaDataParams), Z_Construct_UFunction_UMyObject_CallableFunc_Statics::Function_MetaDataParams) &#125;;</span><br><span class="line">UFunction* Z_Construct_UFunction_UMyObject_CallableFunc()</span><br><span class="line">&#123;</span><br><span class="line">	static UFunction* ReturnFunction = nullptr;</span><br><span class="line">	if (!ReturnFunction)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUFunction(&amp;ReturnFunction, Z_Construct_UFunction_UMyObject_CallableFunc_Statics::FuncParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return ReturnFunction;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>然后Class_MetaDataParams和NewProp_Score_MetaData分别保存了一些元数据信息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">static constexpr UECodeGen_Private::FMetaDataPairParam Class_MetaDataParams[] = &#123;</span><br><span class="line">		&#123; &quot;IncludePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_Score_MetaData[] = &#123;</span><br><span class="line">		&#123; &quot;Category&quot;, &quot;MyObject&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>然后一些其他的如NewProp_Score_MetaData，NewProp_Score，PropPointers，StaticCppClassTypeInfo，ClassParams都是一些直接赋值的初始化。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_UMyObject_Statics::NewProp_Score = &#123; &quot;Score&quot;, nullptr, (EPropertyFlags)0x0010000000000004, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(UMyObject, Score), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_Score_MetaData), NewProp_Score_MetaData) &#125;;</span><br><span class="line">const UECodeGen_Private::FPropertyParamsBase* const Z_Construct_UClass_UMyObject_Statics::PropPointers[] = &#123;</span><br><span class="line">	(const UECodeGen_Private::FPropertyParamsBase*)&amp;Z_Construct_UClass_UMyObject_Statics::NewProp_Score,</span><br><span class="line">&#125;;</span><br><span class="line">const UECodeGen_Private::FClassParams Z_Construct_UClass_UMyObject_Statics::ClassParams = &#123;</span><br><span class="line">	&amp;UMyObject::StaticClass,</span><br><span class="line">	nullptr,</span><br><span class="line">	&amp;StaticCppClassTypeInfo,</span><br><span class="line">	DependentSingletons,</span><br><span class="line">	FuncInfo,</span><br><span class="line">	Z_Construct_UClass_UMyObject_Statics::PropPointers,</span><br><span class="line">	nullptr,</span><br><span class="line">	UE_ARRAY_COUNT(DependentSingletons),</span><br><span class="line">	UE_ARRAY_COUNT(FuncInfo),</span><br><span class="line">	UE_ARRAY_COUNT(Z_Construct_UClass_UMyObject_Statics::PropPointers),</span><br><span class="line">	0,</span><br><span class="line">	0x001000A0u,</span><br><span class="line">	METADATA_PARAMS(UE_ARRAY_COUNT(Z_Construct_UClass_UMyObject_Statics::Class_MetaDataParams), Z_Construct_UClass_UMyObject_Statics::Class_MetaDataParams)</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>所以可以看到Z_Construct_UClass_UMyClass_Statics这个结构体就是定义一些个静态变量然后初始化，用这些静态变量来保存一些函数指针或者一些数据信息。</p>
+<p>然后是下一个DECLARE_CLASS和DECLARE_SERIALIZER</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">#define DECLARE_CLASS( TClass, TSuperClass, TStaticFlags, TStaticCastFlags, TPackage, TRequiredAPI  ) \</span><br><span class="line">private: \</span><br><span class="line">    TClass&amp; operator=(TClass&amp;&amp;);   \</span><br><span class="line">    TClass&amp; operator=(const TClass&amp;);   \</span><br><span class="line">	TRequiredAPI static UClass* GetPrivateStaticClass(); \</span><br><span class="line">public: \</span><br><span class="line">	/** Bitwise union of #EClassFlags pertaining to this class.*/ \</span><br><span class="line">	static constexpr EClassFlags StaticClassFlags=EClassFlags(TStaticFlags); \</span><br><span class="line">	/** Typedef for the base class (&#123;&#123; typedef-type &#125;&#125;) */ \</span><br><span class="line">	typedef TSuperClass Super;\</span><br><span class="line">	/** Typedef for &#123;&#123; typedef-type &#125;&#125;. */ \</span><br><span class="line">	typedef TClass ThisClass;\</span><br><span class="line">	/** Returns a UClass object representing this class at runtime */ \</span><br><span class="line">	inline static UClass* StaticClass() \</span><br><span class="line">	&#123; \</span><br><span class="line">		return GetPrivateStaticClass(); \</span><br><span class="line">	&#125; \</span><br><span class="line">	/** Returns the package this class belongs in */ \</span><br><span class="line">	inline static const TCHAR* StaticPackage() \</span><br><span class="line">	&#123; \</span><br><span class="line">		return TPackage; \</span><br><span class="line">	&#125; \</span><br><span class="line">	/** Returns the static cast flags for this class */ \</span><br><span class="line">	inline static EClassCastFlags StaticClassCastFlags() \</span><br><span class="line">	&#123; \</span><br><span class="line">		return TStaticCastFlags; \</span><br><span class="line">	&#125; \</span><br><span class="line">	/** For internal use only; use StaticConstructObject() to create new objects. */ \</span><br><span class="line">	inline void* operator new(const size_t InSize, EInternal InInternalOnly, UObject* InOuter = (UObject*)GetTransientPackage(), FName InName = NAME_None, EObjectFlags InSetFlags = RF_NoFlags) \</span><br><span class="line">	&#123; \</span><br><span class="line">		return StaticAllocateObject(StaticClass(), InOuter, InName, InSetFlags); \</span><br><span class="line">	&#125; \</span><br><span class="line">	/** For internal use only; use StaticConstructObject() to create new objects. */ \</span><br><span class="line">	inline void* operator new( const size_t InSize, EInternal* InMem ) \</span><br><span class="line">	&#123; \</span><br><span class="line">		return (void*)InMem; \</span><br><span class="line">	&#125; \</span><br><span class="line">	/* Eliminate V1062 warning from PVS-Studio while keeping MSVC and Clang happy. */ \</span><br><span class="line">	inline void operator delete(void* InMem) \</span><br><span class="line">	&#123; \</span><br><span class="line">		::operator delete(InMem); \</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是DECLARE_CLASS的宏展开，里面包含了类的一些函数的定义比如：Super，ThisClass(),StaticClass()等函数的定义而且还重写了New和delete的方法。</p>
+<p>其中UClass* StaticClass()调用了GetPrivateStaticClass()</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">#define IMPLEMENT_CLASS_NO_AUTO_REGISTRATION(TClass) \</span><br><span class="line">	FClassRegistrationInfo Z_Registration_Info_UClass_##TClass; \</span><br><span class="line">	UClass* TClass::GetPrivateStaticClass() \</span><br><span class="line">	&#123; \</span><br><span class="line">		if (!Z_Registration_Info_UClass_##TClass.InnerSingleton) \</span><br><span class="line">		&#123; \</span><br><span class="line">			/* this could be handled with templates, but we want it external to avoid code bloat */ \</span><br><span class="line">			GetPrivateStaticClassBody( \</span><br><span class="line">				StaticPackage(), \</span><br><span class="line">				(TCHAR*)TEXT(#TClass) + 1 + ((StaticClassFlags &amp; CLASS_Deprecated) ? 11 : 0), \</span><br><span class="line">				Z_Registration_Info_UClass_##TClass.InnerSingleton, \</span><br><span class="line">				StaticRegisterNatives##TClass, \</span><br><span class="line">				sizeof(TClass), \</span><br><span class="line">				alignof(TClass), \</span><br><span class="line">				TClass::StaticClassFlags, \</span><br><span class="line">				TClass::StaticClassCastFlags(), \</span><br><span class="line">				TClass::StaticConfigName(), \</span><br><span class="line">				(UClass::ClassConstructorType)InternalConstructor&lt;TClass&gt;, \</span><br><span class="line">				(UClass::ClassVTableHelperCtorCallerType)InternalVTableHelperCtorCaller&lt;TClass&gt;, \</span><br><span class="line">				UOBJECT_CPPCLASS_STATICFUNCTIONS_FORCLASS(TClass), \</span><br><span class="line">				&amp;TClass::Super::StaticClass, \</span><br><span class="line">				&amp;TClass::WithinClass::StaticClass \</span><br><span class="line">			); \</span><br><span class="line">		&#125; \</span><br><span class="line">		return Z_Registration_Info_UClass_##TClass.InnerSingleton; \</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而DECLARE_SERIALIZER则是生成的序列化的一些内容。</p>
+<p>剩最后一个宏FID_Hello_Source_Hello_MyObject_h_34_ENHANCED_CONSTRUCTORS</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">#define FID_Hello_Source_Hello_MyObject_h_34_ENHANCED_CONSTRUCTORS \</span><br><span class="line">	/** Standard constructor, called after all reflected properties have been initialized */ \</span><br><span class="line">	NO_API UMyObject(const FObjectInitializer&amp; ObjectInitializer = FObjectInitializer::Get()); \</span><br><span class="line">private: \// 右值引用构造函数和拷贝构造函数放到private里面，禁用掉</span><br><span class="line">	/** Private move- and copy-constructors, should never be used */ \</span><br><span class="line">	UMyObject(UMyObject&amp;&amp;); \</span><br><span class="line">	UMyObject(const UMyObject&amp;); \</span><br><span class="line">public: \</span><br><span class="line">	DECLARE_VTABLE_PTR_HELPER_CTOR(NO_API, UMyObject); \//热更相关 不用管</span><br><span class="line">	DEFINE_VTABLE_PTR_HELPER_CTOR_CALLER(UMyObject); \//热更相关 不用管</span><br><span class="line">	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UMyObject) \</span><br><span class="line">	NO_API virtual ~UMyObject();//析构</span><br></pre></td></tr></table></figure>
+
+<p>只有这一个DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL宏需要了解，展开它这个宏在ObjectMacros.h文件的1814行</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#define DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \</span><br><span class="line">    static void __DefaultConstructor(const FObjectInitializer&amp; X) &#123; new((EInternal*)X.GetObj())TClass(X); &#125;</span><br></pre></td></tr></table></figure>
+
+<p>其实就是一个默认构造函数。因为构造函数不能保存指针，所以用静态函数然后把它保存到ClassConstructor里面在UClass类里</p>
+<p>预编译完成后ide把MyClass.gen.cpp，MyClass.generate.h，MyClass.h，MyClass.cpp，Hellow.init.gen.cpp放到一起编译，链接。最后就是宏展开一个大文件</p>
+<p>template&lt;&gt; HELLO_API UClass* StaticClass<class UMyObject>();这个已经在DECLARE_CLASS宏中内敛实现。</p>
+<p>再看.gen.cpp文件</p>
+<p>void EmptyLinkFunctionForGeneratedCodeMyClass() {}用于告诉编译器这个文件要编译的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">COREUOBJECT_API UClass* Z_Construct_UClass_UObject();</span><br><span class="line">HELLO_API UClass* Z_Construct_UClass_UMyClass();</span><br><span class="line">HELLO_API UClass* Z_Construct_UClass_UMyClass_NoRegister();</span><br><span class="line">UPackage* Z_Construct_UPackage__Script_Hello();</span><br></pre></td></tr></table></figure>
+
+<p>这是一些变量下面有定义，剩下是一些头文件中的声明的一些定义。</p>
+<p>FRegisterCompiledInInfo这类型的全局静态变量使用于告诉引擎在执行main函数之前构造</p>
+<p>Helper class to perform registration of object information.  It blindly forwards a call to RegisterCompiledInInfo</p>
+<p>剩下就是UEnum和UStruct以及UInterface,首先来看UEnum</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">#define FOREACH_ENUM_EMYENUM(op) \ // 一个用于遍历的枚举的宏</span><br><span class="line">	op(EMyEnum::MY_Dance) \</span><br><span class="line">	op(EMyEnum::MY_Rain) \</span><br><span class="line">	op(EMyEnum::MY_Song) </span><br><span class="line"></span><br><span class="line">enum class EMyEnum : uint8;</span><br><span class="line">template&lt;&gt; struct TIsUEnumClass&lt;EMyEnum&gt; &#123; enum &#123; Value = true &#125;; &#125;;// 模板特例化判断改类型是否为枚举TIsUEnumClass&lt;EMyEnum&gt;::Value = true</span><br><span class="line">template&lt;&gt; HELLO_API UEnum* StaticEnum&lt;EMyEnum&gt;();// 模板特例化StaticEnum</span><br></pre></td></tr></table></figure>
+
+<p>而对应的.gen.cpp则为下面这些内容，通过搜索我的EMyEnum这个名字找到所有生成的相关代码</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line">HELLO_API UEnum* Z_Construct_UEnum_Hello_EMyEnum();</span><br><span class="line">// Begin Enum EMyEnum</span><br><span class="line">static FEnumRegistrationInfo Z_Registration_Info_UEnum_EMyEnum;</span><br><span class="line">static UEnum* EMyEnum_StaticEnum()// 一个懒汉单例</span><br><span class="line">&#123;</span><br><span class="line">	if (!Z_Registration_Info_UEnum_EMyEnum.OuterSingleton)</span><br><span class="line">	&#123;</span><br><span class="line">		Z_Registration_Info_UEnum_EMyEnum.OuterSingleton = GetStaticEnum(Z_Construct_UEnum_Hello_EMyEnum, (UObject*)Z_Construct_UPackage__Script_Hello(), TEXT(&quot;EMyEnum&quot;));</span><br><span class="line">	&#125;</span><br><span class="line">	return Z_Registration_Info_UEnum_EMyEnum.OuterSingleton;</span><br><span class="line">&#125;</span><br><span class="line">template&lt;&gt; HELLO_API UEnum* StaticEnum&lt;EMyEnum&gt;()</span><br><span class="line">&#123;</span><br><span class="line">	return EMyEnum_StaticEnum();</span><br><span class="line">&#125;</span><br><span class="line">struct Z_Construct_UEnum_Hello_EMyEnum_Statics// 定义一些静态数据</span><br><span class="line">&#123;</span><br><span class="line">#if WITH_METADATA// 初始化数据</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam Enum_MetaDataParams[] = &#123;</span><br><span class="line">#if !UE_BUILD_SHIPPING</span><br><span class="line">		&#123; &quot;Comment&quot;, &quot;/**\n * \n */&quot; &#125;,</span><br><span class="line">#endif</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">		&#123; &quot;MY_Dance.Comment&quot;, &quot;/**\n * \n */&quot; &#125;,</span><br><span class="line">		&#123; &quot;MY_Dance.Name&quot;, &quot;EMyEnum::MY_Dance&quot; &#125;,</span><br><span class="line">		&#123; &quot;MY_Rain.Comment&quot;, &quot;/**\n * \n */&quot; &#125;,</span><br><span class="line">		&#123; &quot;MY_Rain.Name&quot;, &quot;EMyEnum::MY_Rain&quot; &#125;,</span><br><span class="line">		&#123; &quot;MY_Song.Comment&quot;, &quot;/**\n * \n */&quot; &#125;,</span><br><span class="line">		&#123; &quot;MY_Song.Name&quot;, &quot;EMyEnum::MY_Song&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">#endif // WITH_METADATA  // 初始化</span><br><span class="line">	static constexpr UECodeGen_Private::FEnumeratorParam Enumerators[] = &#123;</span><br><span class="line">		&#123; &quot;EMyEnum::MY_Dance&quot;, (int64)EMyEnum::MY_Dance &#125;,</span><br><span class="line">		&#123; &quot;EMyEnum::MY_Rain&quot;, (int64)EMyEnum::MY_Rain &#125;,</span><br><span class="line">		&#123; &quot;EMyEnum::MY_Song&quot;, (int64)EMyEnum::MY_Song &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">	static const UECodeGen_Private::FEnumParams EnumParams;</span><br><span class="line">&#125;;</span><br><span class="line">// 初始化数据</span><br><span class="line">const UECodeGen_Private::FEnumParams Z_Construct_UEnum_Hello_EMyEnum_Statics::EnumParams = &#123;</span><br><span class="line">	(UObject*(*)())Z_Construct_UPackage__Script_Hello,</span><br><span class="line">	nullptr,</span><br><span class="line">	&quot;EMyEnum&quot;,</span><br><span class="line">	&quot;EMyEnum&quot;,</span><br><span class="line">	Z_Construct_UEnum_Hello_EMyEnum_Statics::Enumerators,</span><br><span class="line">	RF_Public|RF_Transient|RF_MarkAsNative,</span><br><span class="line">	UE_ARRAY_COUNT(Z_Construct_UEnum_Hello_EMyEnum_Statics::Enumerators),</span><br><span class="line">	EEnumFlags::None,</span><br><span class="line">	(uint8)UEnum::ECppForm::EnumClass,</span><br><span class="line">	METADATA_PARAMS(UE_ARRAY_COUNT(Z_Construct_UEnum_Hello_EMyEnum_Statics::Enum_MetaDataParams), Z_Construct_UEnum_Hello_EMyEnum_Statics::Enum_MetaDataParams)</span><br><span class="line">&#125;;</span><br><span class="line">UEnum* Z_Construct_UEnum_Hello_EMyEnum()// 懒汉单例构造UEnum对象</span><br><span class="line">&#123;</span><br><span class="line">	if (!Z_Registration_Info_UEnum_EMyEnum.InnerSingleton)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUEnum(Z_Registration_Info_UEnum_EMyEnum.InnerSingleton, Z_Construct_UEnum_Hello_EMyEnum_Statics::EnumParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return Z_Registration_Info_UEnum_EMyEnum.InnerSingleton;</span><br><span class="line">&#125;</span><br><span class="line">// End Enum EMyEnum</span><br></pre></td></tr></table></figure>
+
+<p>然后是Struct相关代码</p>
+<p>首先是.generated.h</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">#define FID_Hello_Source_Hello_MyObject_h_24_GENERATED_BODY \</span><br><span class="line">	friend struct Z_Construct_UScriptStruct_FMyStruct_Statics; \</span><br><span class="line">	static class UScriptStruct* StaticStruct();</span><br><span class="line">	template&lt;&gt; HELLO_API UScriptStruct* StaticStruct&lt;struct FMyStruct&gt;();</span><br></pre></td></tr></table></figure>
+
+<p>然后是.gen.cpp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line">HELLO_API UScriptStruct* Z_Construct_UScriptStruct_FMyStruct();// 构造UScriptStruct类型的对象</span><br><span class="line">// Begin ScriptStruct FMyStruct</span><br><span class="line">static FStructRegistrationInfo Z_Registration_Info_UScriptStruct_MyStruct;</span><br><span class="line">UPackage* Z_Construct_UPackage__Script_Hello();// 构造Package 是现在Hello.init.gen.cpp中</span><br><span class="line">class UScriptStruct* FMyStruct::StaticStruct()// 单例，第一次构建，第二次调用则直接返回之前构建的对象</span><br><span class="line">&#123;</span><br><span class="line">	if (!Z_Registration_Info_UScriptStruct_MyStruct.OuterSingleton)</span><br><span class="line">	&#123;</span><br><span class="line">		Z_Registration_Info_UScriptStruct_MyStruct.OuterSingleton = GetStaticStruct(Z_Construct_UScriptStruct_FMyStruct, (UObject*)Z_Construct_UPackage__Script_Hello(), TEXT(&quot;MyStruct&quot;));</span><br><span class="line">	&#125;</span><br><span class="line">	return Z_Registration_Info_UScriptStruct_MyStruct.OuterSingleton;</span><br><span class="line">&#125;</span><br><span class="line">template&lt;&gt; HELLO_API UScriptStruct* StaticStruct&lt;FMyStruct&gt;()</span><br><span class="line">&#123;</span><br><span class="line">	return FMyStruct::StaticStruct();</span><br><span class="line">&#125;</span><br><span class="line">struct Z_Construct_UScriptStruct_FMyStruct_Statics// 一些静态变量</span><br><span class="line">&#123;</span><br><span class="line">#if WITH_METADATA</span><br><span class="line"> // 初始化数据</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam Struct_MetaDataParams[] = &#123;</span><br><span class="line">		&#123; &quot;BlueprintType&quot;, &quot;true&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">	 // 初始化数据</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_Score_MetaData[] = &#123;</span><br><span class="line">		&#123; &quot;Category&quot;, &quot;MyStruct&quot; &#125;,</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">#endif // WITH_METADATA</span><br><span class="line">	static const UECodeGen_Private::FFloatPropertyParams NewProp_Score;</span><br><span class="line">	static const UECodeGen_Private::FPropertyParamsBase* const PropPointers[];</span><br><span class="line">	static void* NewStructOps()// 提供了结构体反射、序列化、复制比较功能</span><br><span class="line">	&#123;</span><br><span class="line">		return (UScriptStruct::ICppStructOps*)new UScriptStruct::TCppStructOps&lt;FMyStruct&gt;();</span><br><span class="line">	&#125;</span><br><span class="line">	static const UECodeGen_Private::FStructParams StructParams;</span><br><span class="line">&#125;;</span><br><span class="line">const UECodeGen_Private::FFloatPropertyParams Z_Construct_UScriptStruct_FMyStruct_Statics::NewProp_Score = &#123; &quot;Score&quot;, nullptr, (EPropertyFlags)0x0010000000000004, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(FMyStruct, Score), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_Score_MetaData), NewProp_Score_MetaData) &#125;;</span><br><span class="line">const UECodeGen_Private::FPropertyParamsBase* const Z_Construct_UScriptStruct_FMyStruct_Statics::PropPointers[] = &#123;</span><br><span class="line">	(const UECodeGen_Private::FPropertyParamsBase*)&amp;Z_Construct_UScriptStruct_FMyStruct_Statics::NewProp_Score,</span><br><span class="line">&#125;;</span><br><span class="line">static_assert(UE_ARRAY_COUNT(Z_Construct_UScriptStruct_FMyStruct_Statics::PropPointers) &lt; 2048);</span><br><span class="line">const UECodeGen_Private::FStructParams Z_Construct_UScriptStruct_FMyStruct_Statics::StructParams = &#123;</span><br><span class="line">	(UObject* (*)())Z_Construct_UPackage__Script_Hello,</span><br><span class="line">	nullptr,</span><br><span class="line">	&amp;NewStructOps,</span><br><span class="line">	&quot;MyStruct&quot;,</span><br><span class="line">	Z_Construct_UScriptStruct_FMyStruct_Statics::PropPointers,</span><br><span class="line">	UE_ARRAY_COUNT(Z_Construct_UScriptStruct_FMyStruct_Statics::PropPointers),</span><br><span class="line">	sizeof(FMyStruct),</span><br><span class="line">	alignof(FMyStruct),</span><br><span class="line">	RF_Public|RF_Transient|RF_MarkAsNative,</span><br><span class="line">	EStructFlags(0x00000201),</span><br><span class="line">	METADATA_PARAMS(UE_ARRAY_COUNT(Z_Construct_UScriptStruct_FMyStruct_Statics::Struct_MetaDataParams), Z_Construct_UScriptStruct_FMyStruct_Statics::Struct_MetaDataParams)</span><br><span class="line">&#125;;</span><br><span class="line">UScriptStruct* Z_Construct_UScriptStruct_FMyStruct()</span><br><span class="line">&#123;</span><br><span class="line">	if (!Z_Registration_Info_UScriptStruct_MyStruct.InnerSingleton)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUScriptStruct(Z_Registration_Info_UScriptStruct_MyStruct.InnerSingleton, Z_Construct_UScriptStruct_FMyStruct_Statics::StructParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return Z_Registration_Info_UScriptStruct_MyStruct.InnerSingleton;</span><br><span class="line">&#125;</span><br><span class="line">// End ScriptStruct FMyStruct</span><br></pre></td></tr></table></figure>
+
+<p>最后我们来看Interface，Interface是有一点点奇怪的，他也是用一个UClass类型的对象保存信息。所以他跟class是很相似的，我们来简单的注释一下。建议从下往上看。</p>
+<p>.h文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">#define FID_Hello_Source_Hello_MyObject_h_52_CALLBACK_WRAPPERS</span><br><span class="line">#define FID_Hello_Source_Hello_MyObject_h_52_ENHANCED_CONSTRUCTORS \</span><br><span class="line">	/** Standard constructor, called after all reflected properties have been initialized */ \</span><br><span class="line">	NO_API UMyInterface(const FObjectInitializer&amp; ObjectInitializer = FObjectInitializer::Get()); \</span><br><span class="line">private: \</span><br><span class="line">	/** Private move- and copy-constructors, should never be used */ \</span><br><span class="line">	UMyInterface(UMyInterface&amp;&amp;); \</span><br><span class="line">	UMyInterface(const UMyInterface&amp;); \</span><br><span class="line">public: \</span><br><span class="line">	DECLARE_VTABLE_PTR_HELPER_CTOR(NO_API, UMyInterface); \</span><br><span class="line">	DEFINE_VTABLE_PTR_HELPER_CTOR_CALLER(UMyInterface); \</span><br><span class="line">	DEFINE_ABSTRACT_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UMyInterface) \</span><br><span class="line">	NO_API virtual ~UMyInterface();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">#define FID_Hello_Source_Hello_MyObject_h_52_GENERATED_UINTERFACE_BODY() \</span><br><span class="line">private: \</span><br><span class="line">	static void StaticRegisterNativesUMyInterface(); \</span><br><span class="line">	friend struct Z_Construct_UClass_UMyInterface_Statics; \</span><br><span class="line">public: \</span><br><span class="line">	DECLARE_CLASS(UMyInterface, UInterface, COMPILED_IN_FLAGS(CLASS_Abstract | CLASS_Interface), CASTCLASS_None, TEXT(&quot;/Script/Hello&quot;), NO_API) \</span><br><span class="line">	DECLARE_SERIALIZER(UMyInterface)</span><br><span class="line">#define FID_Hello_Source_Hello_MyObject_h_52_GENERATED_BODY \</span><br><span class="line">	PRAGMA_DISABLE_DEPRECATION_WARNINGS \</span><br><span class="line">	FID_Hello_Source_Hello_MyObject_h_52_GENERATED_UINTERFACE_BODY() \</span><br><span class="line">	FID_Hello_Source_Hello_MyObject_h_52_ENHANCED_CONSTRUCTORS \</span><br><span class="line">private: \</span><br><span class="line">	PRAGMA_ENABLE_DEPRECATION_WARNINGS</span><br><span class="line">template&lt;&gt; HELLO_API UClass* StaticClass&lt;class UMyInterface&gt;();</span><br><span class="line"></span><br><span class="line">#undef CURRENT_FILE_ID</span><br><span class="line">#define CURRENT_FILE_ID FID_Hello_Source_Hello_MyObject_h</span><br><span class="line">	</span><br></pre></td></tr></table></figure>
+
+<p>.cpp文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">COREUOBJECT_API UClass* Z_Construct_UClass_UInterface(); // 构建UInterface依赖，因为父类是UInterface</span><br><span class="line">HELLO_API UClass* Z_Construct_UClass_UMyInterface();// 构建UInterface的UClass对象</span><br><span class="line">HELLO_API UClass* Z_Construct_UClass_UMyInterface_NoRegister();// 实则是StaticClass</span><br><span class="line">UPackage* Z_Construct_UPackage__Script_Hellow();//同Class</span><br><span class="line"></span><br><span class="line">// Begin Interface UMyInterface Function BPFunc</span><br><span class="line">void IMyInterface::BPFunc() const// 避免直接调用函数 要调用Execute_BPFunc</span><br><span class="line">&#123;</span><br><span class="line">	check(0 &amp;&amp; &quot;Do not directly call Event functions in Interfaces. Call Execute_BPFunc instead.&quot;);</span><br><span class="line">&#125;</span><br><span class="line">static FName NAME_UMyInterface_BPFunc = FName(TEXT(&quot;BPFunc&quot;));</span><br><span class="line">void IMyInterface::Execute_BPFunc(const UObject* O)</span><br><span class="line">&#123;</span><br><span class="line">	check(O != NULL);</span><br><span class="line">	check(O-&gt;GetClass()-&gt;ImplementsInterface(UMyInterface::StaticClass()));</span><br><span class="line">	UFunction* const Func = O-&gt;FindFunction(NAME_UMyInterface_BPFunc);</span><br><span class="line">	if (Func)</span><br><span class="line">	&#123;</span><br><span class="line">		const_cast&lt;UObject*&gt;(O)-&gt;ProcessEvent(Func, NULL);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line">struct Z_Construct_UFunction_UMyInterface_BPFunc_Statics// 静态变量</span><br><span class="line">&#123;</span><br><span class="line">#if WITH_METADATA</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam Function_MetaDataParams[] = &#123;</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">#endif // WITH_METADATA</span><br><span class="line">	static const UECodeGen_Private::FFunctionParams FuncParams;</span><br><span class="line">&#125;;</span><br><span class="line">const UECodeGen_Private::FFunctionParams Z_Construct_UFunction_UMyInterface_BPFunc_Statics::FuncParams = &#123; (UObject*(*)())Z_Construct_UClass_UMyInterface, nullptr, &quot;BPFunc&quot;, nullptr, nullptr, nullptr, 0, 0, RF_Public|RF_Transient|RF_MarkAsNative, (EFunctionFlags)0x48020800, 0, 0, METADATA_PARAMS(UE_ARRAY_COUNT(Z_Construct_UFunction_UMyInterface_BPFunc_Statics::Function_MetaDataParams), Z_Construct_UFunction_UMyInterface_BPFunc_Statics::Function_MetaDataParams) &#125;;</span><br><span class="line">UFunction* Z_Construct_UFunction_UMyInterface_BPFunc()// 构造UFunction对象，函数的信息是由UFunction对象保存的。</span><br><span class="line">	&#123;</span><br><span class="line">&#123;</span><br><span class="line">	static UFunction* ReturnFunction = nullptr;</span><br><span class="line">	if (!ReturnFunction)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUFunction(&amp;ReturnFunction, Z_Construct_UFunction_UMyInterface_BPFunc_Statics::FuncParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return ReturnFunction;</span><br><span class="line">&#125;</span><br><span class="line">// End Interface UMyInterface Function BPFunc</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line">// Begin Interface UMyInterface</span><br><span class="line">void UMyInterface::StaticRegisterNativesUMyInterface()</span><br><span class="line">&#123;</span><br><span class="line">&#125;</span><br><span class="line">IMPLEMENT_CLASS_NO_AUTO_REGISTRATION(UMyInterface);</span><br><span class="line">UClass* Z_Construct_UClass_UMyInterface_NoRegister()</span><br><span class="line">&#123;</span><br><span class="line">	return UMyInterface::StaticClass();</span><br><span class="line">&#125;</span><br><span class="line">struct Z_Construct_UClass_UMyInterface_Statics// 声明静态变量</span><br><span class="line">&#123;</span><br><span class="line">#if WITH_METADATA</span><br><span class="line">	static constexpr UECodeGen_Private::FMetaDataPairParam Class_MetaDataParams[] = &#123;</span><br><span class="line">		&#123; &quot;ModuleRelativePath&quot;, &quot;MyObject.h&quot; &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">#endif // WITH_METADATA</span><br><span class="line">	static UObject* (*const DependentSingletons[])();</span><br><span class="line">	static constexpr FClassFunctionLinkInfo FuncInfo[] = &#123;</span><br><span class="line">		&#123; &amp;Z_Construct_UFunction_UMyInterface_BPFunc, &quot;BPFunc&quot; &#125;, // 219270785</span><br><span class="line">	&#125;;</span><br><span class="line">	static_assert(UE_ARRAY_COUNT(FuncInfo) &lt; 2048);</span><br><span class="line">	static constexpr FCppClassTypeInfoStatic StaticCppClassTypeInfo = &#123;</span><br><span class="line">		TCppClassTypeTraits&lt;IMyInterface&gt;::IsAbstract,</span><br><span class="line">	&#125;;</span><br><span class="line">	static const UECodeGen_Private::FClassParams ClassParams;</span><br><span class="line">&#125;;</span><br><span class="line">UObject* (*const Z_Construct_UClass_UMyInterface_Statics::DependentSingletons[])() = &#123;</span><br><span class="line">	(UObject* (*)())Z_Construct_UClass_UInterface,</span><br><span class="line">	(UObject* (*)())Z_Construct_UPackage__Script_Hello,</span><br><span class="line">&#125;;</span><br><span class="line">static_assert(UE_ARRAY_COUNT(Z_Construct_UClass_UMyInterface_Statics::DependentSingletons) &lt; 16);</span><br><span class="line">const UECodeGen_Private::FClassParams Z_Construct_UClass_UMyInterface_Statics::ClassParams = &#123;</span><br><span class="line">	&amp;UMyInterface::StaticClass,</span><br><span class="line">	nullptr,</span><br><span class="line">	&amp;StaticCppClassTypeInfo,</span><br><span class="line">	DependentSingletons,</span><br><span class="line">	FuncInfo,</span><br><span class="line">	nullptr,</span><br><span class="line">	nullptr,</span><br><span class="line">	UE_ARRAY_COUNT(DependentSingletons),</span><br><span class="line">	UE_ARRAY_COUNT(FuncInfo),</span><br><span class="line">	0,</span><br><span class="line">	0,</span><br><span class="line">	0x000040A1u,</span><br><span class="line">	METADATA_PARAMS(UE_ARRAY_COUNT(Z_Construct_UClass_UMyInterface_Statics::Class_MetaDataParams), Z_Construct_UClass_UMyInterface_Statics::Class_MetaDataParams)</span><br><span class="line">&#125;;</span><br><span class="line">UClass* Z_Construct_UClass_UMyInterface()//构造UClass类， Interface也是由一个UClass对象保存的。</span><br><span class="line">&#123;</span><br><span class="line">	if (!Z_Registration_Info_UClass_UMyInterface.OuterSingleton)</span><br><span class="line">	&#123;</span><br><span class="line">		UECodeGen_Private::ConstructUClass(Z_Registration_Info_UClass_UMyInterface.OuterSingleton, Z_Construct_UClass_UMyInterface_Statics::ClassParams);</span><br><span class="line">	&#125;</span><br><span class="line">	return Z_Registration_Info_UClass_UMyInterface.OuterSingleton;</span><br><span class="line">&#125;</span><br><span class="line">template&lt;&gt; HELLO_API UClass* StaticClass&lt;UMyInterface&gt;()</span><br><span class="line">&#123;</span><br><span class="line">	return UMyInterface::StaticClass();</span><br><span class="line">&#125;</span><br><span class="line">UMyInterface::UMyInterface(const FObjectInitializer&amp; ObjectInitializer) : Super(ObjectInitializer) &#123;&#125;</span><br><span class="line">DEFINE_VTABLE_PTR_HELPER_CTOR(UMyInterface);</span><br><span class="line">UMyInterface::~UMyInterface() &#123;&#125;</span><br><span class="line">// End Interface UMyInterface</span><br></pre></td></tr></table></figure>
+
+<p>最后这个文件还有一个注册相关的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">// Begin Registration</span><br><span class="line">struct Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics</span><br><span class="line">&#123;</span><br><span class="line">	static constexpr FEnumRegisterCompiledInInfo EnumInfo[] = &#123;</span><br><span class="line">		&#123; EMyEnum_StaticEnum, TEXT(&quot;EMyEnum&quot;), &amp;Z_Registration_Info_UEnum_EMyEnum, CONSTRUCT_RELOAD_VERSION_INFO(FEnumReloadVersionInfo, 1916904948U) &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">	static constexpr FStructRegisterCompiledInInfo ScriptStructInfo[] = &#123;</span><br><span class="line">		&#123; FMyStruct::StaticStruct, Z_Construct_UScriptStruct_FMyStruct_Statics::NewStructOps, TEXT(&quot;MyStruct&quot;), &amp;Z_Registration_Info_UScriptStruct_MyStruct, CONSTRUCT_RELOAD_VERSION_INFO(FStructReloadVersionInfo, sizeof(FMyStruct), 2095672077U) &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">	static constexpr FClassRegisterCompiledInInfo ClassInfo[] = &#123;</span><br><span class="line">		&#123; Z_Construct_UClass_UMyObject, UMyObject::StaticClass, TEXT(&quot;UMyObject&quot;), &amp;Z_Registration_Info_UClass_UMyObject, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(UMyObject), 2426388982U) &#125;,</span><br><span class="line">		&#123; Z_Construct_UClass_UMyInterface, UMyInterface::StaticClass, TEXT(&quot;UMyInterface&quot;), &amp;Z_Registration_Info_UClass_UMyInterface, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(UMyInterface), 3124696902U) &#125;,</span><br><span class="line">	&#125;;</span><br><span class="line">&#125;;</span><br><span class="line">static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_3301262609(TEXT(&quot;/Script/Hello&quot;),</span><br><span class="line">	Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics::ClassInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics::ClassInfo),</span><br><span class="line">	Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics::ScriptStructInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics::ScriptStructInfo),</span><br><span class="line">	Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics::EnumInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_Hello_Source_Hello_MyObject_h_Statics::EnumInfo));</span><br><span class="line">// End Registration</span><br></pre></td></tr></table></figure>
+
+<p>下一章分析如何注册如何函数调用</p>
+<p>通过UHT我们生成了很多静态变量（类型信息，函数信息，变量信息）和用于构造UClass对象，UFunction对象，UScript对象的构造函数指针，目前只是生成了但是还需要进行注册和收集，反射就是通过收集到的信息封装一些API，从而可以做到通过函数名字调用函数等一些操作。</p>
+<p>补充：C++Static自动注册模式，该模式就是通过static全局静态变量会在main()函数之前构造的特性，然后把注册的操作写到该变量的构造函数中，从而做到自动注册的操作。</p>
+<p>我们来看它的构造函数。会对Class类型，Struct类型，Enum类型分别进行注册。例如一个.h文件中写了3个class，2个enum class，2个struct，那么参数NumClassInfo，NumStructInfo，NumEnumInfo则为，3，2，2。然后通过RegisterCompiledInInfo的函数重载进行分别注册。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">struct FRegisterCompiledInInfo</span><br><span class="line">&#123;</span><br><span class="line">	template &lt;typename ... Args&gt;</span><br><span class="line">	FRegisterCompiledInInfo(Args&amp;&amp; ... args)</span><br><span class="line">	&#123;</span><br><span class="line">		RegisterCompiledInInfo(std::forward&lt;Args&gt;(args)...);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line">// Multiple registrations</span><br><span class="line">void RegisterCompiledInInfo(const TCHAR* PackageName, const FClassRegisterCompiledInInfo* ClassInfo, size_t NumClassInfo, const FStructRegisterCompiledInInfo* StructInfo, size_t NumStructInfo, const FEnumRegisterCompiledInInfo* EnumInfo, size_t NumEnumInfo)</span><br><span class="line">&#123;</span><br><span class="line">	LLM_SCOPE(ELLMTag::UObject);</span><br><span class="line"></span><br><span class="line">	for (size_t Index = 0; Index &lt; NumClassInfo; ++Index)</span><br><span class="line">	&#123;</span><br><span class="line">		const FClassRegisterCompiledInInfo&amp; Info = ClassInfo[Index];</span><br><span class="line">		RegisterCompiledInInfo(Info.OuterRegister, Info.InnerRegister, PackageName, Info.Name, *Info.Info, Info.VersionInfo);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	for (size_t Index = 0; Index &lt; NumStructInfo; ++Index)</span><br><span class="line">	&#123;</span><br><span class="line">		const FStructRegisterCompiledInInfo&amp; Info = StructInfo[Index];</span><br><span class="line">		RegisterCompiledInInfo(Info.OuterRegister, PackageName, Info.Name, *Info.Info, Info.VersionInfo);</span><br><span class="line">		if (Info.CreateCppStructOps != nullptr)</span><br><span class="line">		&#123;</span><br><span class="line">			UScriptStruct::DeferCppStructOps(FTopLevelAssetPath(FName(PackageName), FName(Info.Name)), (UScriptStruct::ICppStructOps*)Info.CreateCppStructOps());</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	for (size_t Index = 0; Index &lt; NumEnumInfo; ++Index)</span><br><span class="line">	&#123;</span><br><span class="line">		const FEnumRegisterCompiledInInfo&amp; Info = EnumInfo[Index];</span><br><span class="line">		RegisterCompiledInInfo(Info.OuterRegister, PackageName, Info.Name, *Info.Info, Info.VersionInfo);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这种自动注册的设计模式缺点在于<strong>没法自己设计注册顺序</strong>，那对于注册顺序有要求的功能则不太友好。UE则是通过保存依赖项构造函数和延迟注册的方式来规避，比如说要注册一个UClass对象，发现其依赖项还没有注册，由于保存了依赖项的静态构造函数指针，则先注册依赖项，再注册UClass，由于是懒汉单例，大家都只会注册一次，所以在重复注册时也不会每次都走注册流程。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div>坚持原创技术分享，您的支持将鼓励我继续创作</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/wechatpay.jpg" alt="LiuChuanFeng 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/alipay.jpg" alt="LiuChuanFeng 支付宝">
+        <p>支付宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>LiuChuanFeng
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liutianqi0123.github.io/2025/08/25/UObject%E7%B3%BB%E5%88%97/" title="UObject系列-源码分析">https://liutianqi0123.github.io/2025/08/25/UObject系列/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/08/12/UE%20UMG%E5%92%8CSlate%20%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E5%92%8C%E6%B7%B7%E5%90%88%E4%BD%BF%E7%94%A8/" rel="prev" title="UMG和Slate 源码分析和混合使用">
+      <i class="fa fa-chevron-left"></i> UMG和Slate 源码分析和混合使用
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#UObject%E7%B3%BB%E5%88%97"><span class="nav-number">1.</span> <span class="nav-text">UObject系列</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="LiuChuanFeng"
+      src="/images/blogImage.jpg">
+  <p class="site-author-name" itemprop="name">LiuChuanFeng</p>
+  <div class="site-description" itemprop="description">Unreal，C++，Lua，编辑器，渲染，Gameplay，3C。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/liutianqi0123" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;liutianqi0123" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/zh-CN" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">LiuChuanFeng</span>
+</div>
+  <div class="powered-by">
+    <!--由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动 -->
+  </div>
+
+<!-- 网站运行时间的设置 -->
+<span id="timeDate">载入天数...</span>
+<span id="times">载入时分秒...</span>
+<script>
+    var now = new Date();
+    function createtime() {
+        var grt= new Date("07/17/2025 10:00:00"); //此处修改你的建站时间或者网站上线时间
+        now.setTime(now.getTime()+250);
+        days = (now - grt ) / 1000 / 60 / 60 / 24; dnum = Math.floor(days);
+        hours = (now - grt ) / 1000 / 60 / 60 - (24 * dnum); hnum = Math.floor(hours);
+        if(String(hnum).length ==1 ){hnum = "0" + hnum;} minutes = (now - grt ) / 1000 /60 - (24 * 60 * dnum) - (60 * hnum);
+        mnum = Math.floor(minutes); if(String(mnum).length ==1 ){mnum = "0" + mnum;}
+        seconds = (now - grt ) / 1000 - (24 * 60 * 60 * dnum) - (60 * 60 * hnum) - (60 * mnum);
+        snum = Math.round(seconds); if(String(snum).length ==1 ){snum = "0" + snum;}
+        document.getElementById("timeDate").innerHTML = "本站已安全运行 "+dnum+" 天 ";
+        document.getElementById("times").innerHTML = hnum + " 小时 " + mnum + " 分 " + snum + " 秒.";
+    }
+setInterval("createtime()",250);
+</script>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+
+<script type="text/javascript" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

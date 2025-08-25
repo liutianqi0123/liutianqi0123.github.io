@@ -6,7 +6,7 @@
   <link href="https://liutianqi0123.github.io/atom.xml" rel="self"/>
   
   <link href="https://liutianqi0123.github.io/"/>
-  <updated>2025-08-11T17:36:14.022Z</updated>
+  <updated>2025-08-25T09:02:16.795Z</updated>
   <id>https://liutianqi0123.github.io/</id>
   
   <author>
@@ -15,6 +15,26 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>UObject系列-源码分析</title>
+    <link href="https://liutianqi0123.github.io/2025/08/25/UObject%E7%B3%BB%E5%88%97/"/>
+    <id>https://liutianqi0123.github.io/2025/08/25/UObject%E7%B3%BB%E5%88%97/</id>
+    <published>2025-08-25T09:07:17.000Z</published>
+    <updated>2025-08-25T09:02:16.795Z</updated>
+    
+    
+    <summary type="html">&lt;h1 id=&quot;UObject系列&quot;&gt;&lt;a href=&quot;#UObject系列&quot; class=&quot;headerlink&quot; title=&quot;UObject系列&quot;&gt;&lt;/a&gt;UObject系列&lt;/h1&gt;&lt;p&gt;UObject作为UE整个体系的基类，内包含了很多通用功能，包括：GC,Reflection,MetaData,Serialization,Editable,Class Default Object&lt;/p&gt;
+&lt;p&gt;1.C++，C11，模板，宏，对象内存模型&lt;/p&gt;
+&lt;p&gt;2.反射系统，编译原理，元数据，程序结构，&lt;/p&gt;
+&lt;p&gt;3，多线程&lt;/p&gt;
+&lt;p&gt;4，C++内存分配管理，内存分配管理的意义和技术。&lt;/p&gt;
+&lt;p&gt;通过UHT工具已经分析得到了足够的类型元数据信息，下一步就是利用这个信息在程序内存中构建起类型系统结构，这个过程为注册。UE在内存中模拟构建的过程中，也需要经过-生成-收集-注册-链接几个阶段。&lt;/p&gt;</summary>
+    
+    
+    
+    
+  </entry>
   
   <entry>
     <title>UMG和Slate 源码分析和混合使用</title>
